@@ -48,12 +48,10 @@ public class FileController {
         if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
 
         try {
-            // unique path banao: userId/timestamp_filename
-                        String cleanName = file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._-]", "_");
+            String cleanName = file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._-]", "_");
             String path = userId + "/" + System.currentTimeMillis() + "_" + cleanName;
             storageService.upload(file, path);
 
-            // metadata database mein save
             FileEntity entity = new FileEntity();
             entity.setName(file.getOriginalFilename());
             entity.setStoragePath(path);
@@ -89,5 +87,43 @@ public class FileController {
         }
         String url = storageService.getPublicUrl(file.getStoragePath());
         return ResponseEntity.ok(Map.of("url", url, "name", file.getName()));
+    }
+
+    // ===== TRASH FILE =====
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> trashFile(@PathVariable Long id,
+                                       @RequestHeader("Authorization") String authHeader) {
+        Long userId = getUserId(authHeader);
+        if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        FileEntity file = fileRepository.findById(id).orElse(null);
+        if (file == null || !file.getOwnerId().equals(userId)) {
+            return ResponseEntity.status(404).body(Map.of("error", "File not found"));
+        }
+        file.setTrashed(true);
+        fileRepository.save(file);
+        return ResponseEntity.ok(Map.of("message", "File moved to trash"));
+    }
+
+    // ===== RESTORE FILE =====
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<?> restoreFile(@PathVariable Long id,
+                                         @RequestHeader("Authorization") String authHeader) {
+        Long userId = getUserId(authHeader);
+        if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        FileEntity file = fileRepository.findById(id).orElse(null);
+        if (file == null || !file.getOwnerId().equals(userId)) {
+            return ResponseEntity.status(404).body(Map.of("error", "File not found"));
+        }
+        file.setTrashed(false);
+        fileRepository.save(file);
+        return ResponseEntity.ok(Map.of("message", "File restored"));
+    }
+
+    // ===== TRASH LIST =====
+    @GetMapping("/trash")
+    public ResponseEntity<?> trashList(@RequestHeader("Authorization") String authHeader) {
+        Long userId = getUserId(authHeader);
+        if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        return ResponseEntity.ok(fileRepository.findByOwnerIdAndTrashedTrue(userId));
     }
 }

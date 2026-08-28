@@ -4,8 +4,8 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "files")
-public class FileEntity {
+@Table(name = "folders")
+public class Folder {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -14,16 +14,12 @@ public class FileEntity {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false)
-    private String storagePath;   // Supabase pe file ka path
-
-    private String fileType;      // jpg, pdf, etc
-    private Long fileSize;        // bytes
+    private Long parentId;   // null = root; warna kis folder ke andar
 
     @Column(nullable = false)
-    private Long ownerId;         // kis user ki file
-    private Long folderId;   // null = root; warna kis folder mein
-    private boolean trashed = false;   // soft delete (Trash)
+    private Long ownerId;
+
+    private boolean trashed = false;
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -34,17 +30,8 @@ public class FileEntity {
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
-    public String getStoragePath() { return storagePath; }
-    public void setStoragePath(String storagePath) { this.storagePath = storagePath; }
-
-    public String getFileType() { return fileType; }
-    public void setFileType(String fileType) { this.fileType = fileType; }
-
-    public Long getFolderId() { return folderId; }
-    public void setFolderId(Long folderId) { this.folderId = folderId; }
-
-    public Long getFileSize() { return fileSize; }
-    public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
+    public Long getParentId() { return parentId; }
+    public void setParentId(Long parentId) { this.parentId = parentId; }
 
     public Long getOwnerId() { return ownerId; }
     public void setOwnerId(Long ownerId) { this.ownerId = ownerId; }
