@@ -35,22 +35,18 @@ public class FolderController {
         return user != null ? user.getId() : null;
     }
 
-    // ===== CREATE FOLDER =====
     @PostMapping
     public ResponseEntity<?> create(@RequestBody Map<String, Object> body,
                                     @RequestHeader("Authorization") String authHeader) {
         Long userId = getUserId(authHeader);
         if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
-
         String name = (String) body.get("name");
         if (name == null || name.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Folder name required"));
         }
-
         Folder folder = new Folder();
         folder.setName(name);
         folder.setOwnerId(userId);
-        // parentId optional (folder ke andar folder)
         if (body.get("parentId") != null) {
             folder.setParentId(Long.valueOf(body.get("parentId").toString()));
         }
@@ -58,13 +54,11 @@ public class FolderController {
         return ResponseEntity.ok(folder);
     }
 
-    // ===== LIST FOLDERS (root ya kisi folder ke andar) =====
     @GetMapping
     public ResponseEntity<?> list(@RequestParam(required = false) Long parentId,
                                   @RequestHeader("Authorization") String authHeader) {
         Long userId = getUserId(authHeader);
         if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
-
         List<Folder> folders;
         if (parentId == null) {
             folders = folderRepository.findByOwnerIdAndParentIdIsNullAndTrashedFalse(userId);
@@ -74,13 +68,11 @@ public class FolderController {
         return ResponseEntity.ok(folders);
     }
 
-    // ===== RENAME FOLDER =====
     @PutMapping("/{id}")
     public ResponseEntity<?> rename(@PathVariable Long id, @RequestBody Map<String, Object> body,
                                     @RequestHeader("Authorization") String authHeader) {
         Long userId = getUserId(authHeader);
         if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
-
         Folder folder = folderRepository.findById(id).orElse(null);
         if (folder == null || !folder.getOwnerId().equals(userId)) {
             return ResponseEntity.status(404).body(Map.of("error", "Folder not found"));
@@ -91,13 +83,11 @@ public class FolderController {
         return ResponseEntity.ok(folder);
     }
 
-    // ===== TRASH FOLDER (soft delete) =====
     @DeleteMapping("/{id}")
     public ResponseEntity<?> trash(@PathVariable Long id,
                                    @RequestHeader("Authorization") String authHeader) {
         Long userId = getUserId(authHeader);
         if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
-
         Folder folder = folderRepository.findById(id).orElse(null);
         if (folder == null || !folder.getOwnerId().equals(userId)) {
             return ResponseEntity.status(404).body(Map.of("error", "Folder not found"));
@@ -107,13 +97,11 @@ public class FolderController {
         return ResponseEntity.ok(Map.of("message", "Folder moved to trash"));
     }
 
-    // ===== RESTORE FOLDER =====
     @PostMapping("/{id}/restore")
     public ResponseEntity<?> restore(@PathVariable Long id,
                                      @RequestHeader("Authorization") String authHeader) {
         Long userId = getUserId(authHeader);
         if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
-
         Folder folder = folderRepository.findById(id).orElse(null);
         if (folder == null || !folder.getOwnerId().equals(userId)) {
             return ResponseEntity.status(404).body(Map.of("error", "Folder not found"));

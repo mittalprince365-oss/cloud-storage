@@ -9,6 +9,9 @@ import com.cloudstorage.backend.model.User;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.*;
 
@@ -30,7 +33,6 @@ public class FileController {
         this.userRepository = userRepository;
     }
 
-    // token se user id nikaalo (helper)
     private Long getUserId(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) return null;
         String token = authHeader.substring(7);
@@ -40,18 +42,15 @@ public class FileController {
         return user != null ? user.getId() : null;
     }
 
-    // ===== UPLOAD =====
     @PostMapping("/upload")
     public ResponseEntity<?> upload(@RequestParam("file") MultipartFile file,
                                     @RequestHeader("Authorization") String authHeader) {
         Long userId = getUserId(authHeader);
         if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
-
         try {
             String cleanName = file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._-]", "_");
             String path = userId + "/" + System.currentTimeMillis() + "_" + cleanName;
             storageService.upload(file, path);
-
             FileEntity entity = new FileEntity();
             entity.setName(file.getOriginalFilename());
             entity.setStoragePath(path);
@@ -59,14 +58,12 @@ public class FileController {
             entity.setFileSize(file.getSize());
             entity.setOwnerId(userId);
             fileRepository.save(entity);
-
             return ResponseEntity.ok(entity);
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", "Upload failed: " + e.getMessage()));
         }
     }
 
-    // ===== LIST MY FILES =====
     @GetMapping
     public ResponseEntity<?> myFiles(@RequestHeader("Authorization") String authHeader) {
         Long userId = getUserId(authHeader);
@@ -74,13 +71,40 @@ public class FileController {
         return ResponseEntity.ok(fileRepository.findByOwnerIdAndTrashedFalse(userId));
     }
 
-    // ===== DOWNLOAD (public url) =====
+    @GetMapping("/search")
+    public ResponseEntity<?> search(@RequestParam(required = false, defaultValue = "") String query,
+                                    @RequestParam(defaultValue = "0") int page,
+                                    @RequestParam(defaultValue = "10") int size,
+                                    @RequestHeader("Authorization") String authHeader) {
+        Long userId = getUserId(authHeader);
+        if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        Pageable pageable = PageRequest.of(page, size);
+        Page<FileEntity> result;
+        if (query.isBlank()) {
+            result = fileRepository.findByOwnerIdAndTrashedFalse(userId, pageable);
+        } else {
+            result = fileRepository.findByOwnerIdAndTrashedFalseAndNameContainingIgnoreCase(userId, query, pageable);
+        }
+        Map<String, Object> response = new HashMap<>();
+        response.put("files", result.getContent());
+        response.put("currentPage", result.getNumber());
+        response.put("totalPages", result.getTotalPages());
+        response.put("totalFiles", result.getTotalElements());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/trash")
+    public ResponseEntity<?> trashList(@RequestHeader("Authorization") String authHeader) {
+        Long userId = getUserId(authHeader);
+        if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        return ResponseEntity.ok(fileRepository.findByOwnerIdAndTrashedTrue(userId));
+    }
+
     @GetMapping("/{id}/download")
     public ResponseEntity<?> download(@PathVariable Long id,
                                       @RequestHeader("Authorization") String authHeader) {
         Long userId = getUserId(authHeader);
         if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
-
         FileEntity file = fileRepository.findById(id).orElse(null);
         if (file == null || !file.getOwnerId().equals(userId)) {
             return ResponseEntity.status(404).body(Map.of("error", "File not found"));
@@ -89,7 +113,6 @@ public class FileController {
         return ResponseEntity.ok(Map.of("url", url, "name", file.getName()));
     }
 
-    // ===== TRASH FILE =====
     @DeleteMapping("/{id}")
     public ResponseEntity<?> trashFile(@PathVariable Long id,
                                        @RequestHeader("Authorization") String authHeader) {
@@ -104,7 +127,6 @@ public class FileController {
         return ResponseEntity.ok(Map.of("message", "File moved to trash"));
     }
 
-    // ===== RESTORE FILE =====
     @PostMapping("/{id}/restore")
     public ResponseEntity<?> restoreFile(@PathVariable Long id,
                                          @RequestHeader("Authorization") String authHeader) {
@@ -117,13 +139,5 @@ public class FileController {
         file.setTrashed(false);
         fileRepository.save(file);
         return ResponseEntity.ok(Map.of("message", "File restored"));
-    }
-
-    // ===== TRASH LIST =====
-    @GetMapping("/trash")
-    public ResponseEntity<?> trashList(@RequestHeader("Authorization") String authHeader) {
-        Long userId = getUserId(authHeader);
-        if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
-        return ResponseEntity.ok(fileRepository.findByOwnerIdAndTrashedTrue(userId));
     }
 }
