@@ -1,6 +1,6 @@
 target/
 *.class
-application.properties
+
 .env
 node_modules/
 application-local.properties
