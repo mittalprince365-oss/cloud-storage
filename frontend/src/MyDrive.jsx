@@ -12,6 +12,7 @@ function MyDrive() {
   const [showFolderInput, setShowFolderInput] = useState(false)
   const [folderName, setFolderName] = useState('')
   const [shareFile, setShareFile] = useState(null)
+  const [search, setSearch] = useState('')
   const fileInputRef = useRef(null)
 
   const fetchData = async () => {
@@ -32,6 +33,23 @@ function MyDrive() {
   useEffect(() => {
     fetchData()
   }, [])
+
+  // SEARCH (debounced)
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (search.trim()) {
+        try {
+          const res = await api.get(`/api/files/search?query=${search}&page=0&size=50`)
+          setFiles(res.data.files)
+        } catch (err) {
+          console.log(err)
+        }
+      } else {
+        fetchData()
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [search])
 
   const handleUpload = async (e) => {
     const file = e.target.files[0]
@@ -113,6 +131,14 @@ function MyDrive() {
             </div>
           </div>
 
+          <input
+            type="text"
+            placeholder="🔍 Search files..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-slate-800 text-white border border-slate-700 rounded px-3 py-2 text-sm mb-6"
+          />
+
           {showFolderInput && (
             <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 mb-6 flex gap-3">
               <input
@@ -155,7 +181,7 @@ function MyDrive() {
                   <p className="text-slate-400">No files yet. Upload something!</p>
                 </div>
               ) : files.length === 0 ? (
-                <p className="text-slate-500 text-sm">No files</p>
+                <p className="text-slate-500 text-sm">No files found</p>
               ) : (
                 <div className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
                   <table className="w-full text-sm">
