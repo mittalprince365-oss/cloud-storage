@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import api from './api'
 import Navbar from './Navbar'
 import Sidebar from './Sidebar'
@@ -7,6 +7,10 @@ function MyDrive() {
   const [files, setFiles] = useState([])
   const [folders, setFolders] = useState([])
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [showFolderInput, setShowFolderInput] = useState(false)
+  const [folderName, setFolderName] = useState('')
+  const fileInputRef = useRef(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -27,6 +31,38 @@ function MyDrive() {
     fetchData()
   }, [])
 
+  // FILE UPLOAD
+  const handleUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      await api.post('/api/files/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      fetchData()
+    } catch (err) {
+      alert('Upload failed: ' + (err.response?.data?.error || err.message))
+    }
+    setUploading(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  // CREATE FOLDER
+  const handleCreateFolder = async () => {
+    if (!folderName.trim()) return
+    try {
+      await api.post('/api/folders', { name: folderName })
+      setFolderName('')
+      setShowFolderInput(false)
+      fetchData()
+    } catch (err) {
+      alert('Could not create folder')
+    }
+  }
+
   const formatSize = (bytes) => {
     if (!bytes) return '-'
     if (bytes < 1024) return bytes + ' B'
@@ -40,13 +76,47 @@ function MyDrive() {
       <div className="flex">
         <Sidebar />
         <div className="flex-1 p-8">
-          <h1 className="text-2xl font-bold text-white mb-6">My Drive</h1>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-white">My Drive</h1>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowFolderInput(!showFolderInput)}
+                className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded text-sm">
+                + New Folder
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+                {uploading ? 'Uploading...' : '⬆️ Upload File'}
+              </button>
+              <input type="file" ref={fileInputRef} onChange={handleUpload} className="hidden" />
+            </div>
+          </div>
+
+          {/* NEW FOLDER INPUT */}
+          {showFolderInput && (
+            <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 mb-6 flex gap-3">
+              <input
+                type="text"
+                placeholder="Folder name"
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
+                className="flex-1 bg-slate-700 text-white rounded p-2 text-sm"
+                autoFocus
+              />
+              <button onClick={handleCreateFolder}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm">
+                Create
+              </button>
+            </div>
+          )}
 
           {loading ? (
             <p className="text-slate-400">Loading...</p>
           ) : (
             <>
-              {/* FOLDERS */}
               {folders.length > 0 && (
                 <div className="mb-6">
                   <p className="text-slate-400 text-sm mb-3">Folders</p>
@@ -61,7 +131,6 @@ function MyDrive() {
                 </div>
               )}
 
-              {/* FILES */}
               <p className="text-slate-400 text-sm mb-3">Files</p>
               {files.length === 0 && folders.length === 0 ? (
                 <div className="bg-slate-800 border border-slate-700 rounded-lg p-8 text-center">
