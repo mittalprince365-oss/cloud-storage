@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import api from './api'
 import Navbar from './Navbar'
 import Sidebar from './Sidebar'
+import ShareModal from './ShareModal'
 
 function MyDrive() {
   const [files, setFiles] = useState([])
@@ -10,6 +11,7 @@ function MyDrive() {
   const [uploading, setUploading] = useState(false)
   const [showFolderInput, setShowFolderInput] = useState(false)
   const [folderName, setFolderName] = useState('')
+  const [shareFile, setShareFile] = useState(null)
   const fileInputRef = useRef(null)
 
   const fetchData = async () => {
@@ -31,7 +33,6 @@ function MyDrive() {
     fetchData()
   }, [])
 
-  // FILE UPLOAD
   const handleUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -50,7 +51,6 @@ function MyDrive() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  // CREATE FOLDER
   const handleCreateFolder = async () => {
     if (!folderName.trim()) return
     try {
@@ -60,6 +60,25 @@ function MyDrive() {
       fetchData()
     } catch (err) {
       alert('Could not create folder')
+    }
+  }
+
+  const downloadFile = async (id) => {
+    try {
+      const res = await api.get(`/api/files/${id}/download`)
+      window.open(res.data.url, '_blank')
+    } catch (err) {
+      alert('Could not download')
+    }
+  }
+
+  const deleteFile = async (id) => {
+    if (!confirm('Move this file to trash?')) return
+    try {
+      await api.delete(`/api/files/${id}`)
+      fetchData()
+    } catch (err) {
+      alert('Could not delete')
     }
   }
 
@@ -94,7 +113,6 @@ function MyDrive() {
             </div>
           </div>
 
-          {/* NEW FOLDER INPUT */}
           {showFolderInput && (
             <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 mb-6 flex gap-3">
               <input
@@ -146,6 +164,7 @@ function MyDrive() {
                         <th className="text-left px-4 py-3">Name</th>
                         <th className="text-left px-4 py-3">Type</th>
                         <th className="text-left px-4 py-3">Size</th>
+                        <th className="text-left px-4 py-3">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -154,6 +173,16 @@ function MyDrive() {
                           <td className="px-4 py-3 text-white">📄 {file.name}</td>
                           <td className="px-4 py-3 text-slate-400">{file.fileType || '-'}</td>
                           <td className="px-4 py-3 text-slate-400">{formatSize(file.fileSize)}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-2">
+                              <button onClick={() => downloadFile(file.id)}
+                                className="text-blue-400 hover:text-blue-300 text-xs">Download</button>
+                              <button onClick={() => setShareFile(file)}
+                                className="text-green-400 hover:text-green-300 text-xs">Share</button>
+                              <button onClick={() => deleteFile(file.id)}
+                                className="text-red-400 hover:text-red-300 text-xs">Delete</button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -164,6 +193,8 @@ function MyDrive() {
           )}
         </div>
       </div>
+
+      {shareFile && <ShareModal file={shareFile} onClose={() => setShareFile(null)} />}
     </div>
   )
 }
