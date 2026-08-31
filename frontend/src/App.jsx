@@ -3,6 +3,7 @@ import Login from './Login'
 import Register from './Register'
 import MyDrive from './MyDrive'
 import SharedWithMe from './SharedWithMe'
+import Trash from './Trash'
 
 function ProtectedDrive() {
   const user = JSON.parse(localStorage.getItem('user') || 'null')
@@ -18,6 +19,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
                 <Route path="/shared" element={<SharedWithMe />} />
+                <Route path="/trash" element={<Trash />} />
       </Routes>
     </BrowserRouter>
   )
